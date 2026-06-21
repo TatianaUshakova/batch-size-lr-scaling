@@ -2,8 +2,8 @@
 
 This script implements the local experiment described in the README:
 train a small MNIST MLP to fixed checkpoints, freeze each checkpoint, and
-measure which hypothetical SGD step size gives the smallest one-step loss change for
-different gradient minibatch sizes.
+measure which hypothetical SGD step size gives the maximum one-step loss reduction
+for different gradient minibatch sizes.
 """
 
 from __future__ import annotations
@@ -38,12 +38,13 @@ from torchvision import datasets, transforms
 
 SEED = 1234
 DEVICE = "auto"  # "auto", "cpu", "cuda", or "mps"
-OUTPUT_DIR = "outputs/mnist_optimal_batch_lr"
+OUTPUT_DIR = "outputs/mnist_optimal_batch_lr_dense"
 DATA_DIR = "data"
 
-CHECKPOINT_STEPS = [100, 500, 1500]
-BATCH_SIZES = [4, 8, 16, 32, 64, 128, 256, 512]
-K = 50
+CHECKPOINT_STEPS = [100, 500]
+BATCH_SIZES = [4, 8, 16, 32, 64, 128, 256, 384, 512, 768, 1024, 1536, 2048]
+LOSS_CURVE_PLOT_BATCH_SIZES = [4, 8, 16, 32, 64, 128, 256, 512]
+K = 10
 EPSILON_GRID = [
     1e-4,
     3e-4,
@@ -56,16 +57,28 @@ EPSILON_GRID = [
     1.5e-2,
     2e-2,
     3e-2,
+    4e-2,
     5e-2,
+    6e-2,
     7e-2,
+    8e-2,
+    9e-2,
     1e-1,
+    1.2e-1,
     1.5e-1,
+    1.8e-1,
     2e-1,
+    2.2e-1,
+    2.5e-1,
+    2.8e-1,
     3e-1,
+    3.5e-1,
+    4e-1,
     5e-1,
+    7e-1,
     1.0,
 ]
-EVAL_SUBSET_SIZE = 10_000
+EVAL_SUBSET_SIZE = 2_000
 EVAL_BATCH_SIZE = 512
 TRAINING_BATCH_SIZE = 64
 TRAINING_LR = 0.1
@@ -519,7 +532,7 @@ def aggregate_and_fit(
             dtype=float,
         )
         epsilon_array = np.array(
-            [row["epsilon_opt_grid"] for row in checkpoint_opt_rows],
+            [row["epsilon_opt_quadratic"] for row in checkpoint_opt_rows],
             dtype=float,
         )
 
@@ -590,7 +603,7 @@ def aggregate_and_fit(
 
     make_plots(config, aggregate_rows, opt_rows, fit_rows, output_dir)
     make_normalized_plots(config, opt_rows, fit_rows, output_dir)
-    make_delta_opt_vs_epsilon_opt_plot(config, opt_rows, output_dir)
+    make_loss_change_opt_vs_epsilon_opt_plot(config, opt_rows, output_dir)
 
 
 def make_plots(
@@ -614,27 +627,35 @@ def make_plots(
     if len(config.checkpoint_steps) == 1:
         axes = [axes]
 
-    colors = plt.cm.tab10(np.linspace(0, 1, len(config.batch_sizes)))
+    plot_batch_sizes = [
+        batch_size for batch_size in LOSS_CURVE_PLOT_BATCH_SIZES
+        if batch_size in config.batch_sizes
+    ]
+    colors = plt.cm.tab10(np.linspace(0, 1, len(plot_batch_sizes)))
     for ax, checkpoint_step in zip(axes, config.checkpoint_steps, strict=True):
         checkpoint_rows = [
             row for row in aggregate_rows
             if int(row["checkpoint_step"]) == checkpoint_step
+        ]
+        plot_checkpoint_rows = [
+            row for row in checkpoint_rows
+            if int(row["batch_size"]) in plot_batch_sizes
         ]
         fit = fit_by_checkpoint[checkpoint_step]
         epsilon_max = float(fit["epsilon_max"])
         b_noise = float(fit["b_noise"])
         local_region_values = [
             float(row["mean_loss_change"])
-            for row in checkpoint_rows
+            for row in plot_checkpoint_rows
             if float(row["mean_loss_change"]) < 0.2
         ]
         local_region_epsilons = [
             float(row["epsilon"])
-            for row in checkpoint_rows
+            for row in plot_checkpoint_rows
             if float(row["mean_loss_change"]) < 0.2
         ]
 
-        for batch_size, color in zip(config.batch_sizes, colors, strict=True):
+        for batch_size, color in zip(plot_batch_sizes, colors, strict=True):
             batch_rows = sorted(
                 [
                     row for row in checkpoint_rows
@@ -691,14 +712,14 @@ def make_plots(
             x_margin = 0.08 * max(x_max - x_min, 1e-3)
             ax.set_xlim(max(0.0, x_min - x_margin), x_max + x_margin)
         ax.set_xlabel("epsilon")
-        ax.set_ylabel("mean one-step loss change (error bars: SE)")
+        ax.set_ylabel("mean loss change ΔL (lower = larger loss reduction; error bars: SE)")
         ax.set_title(f"checkpoint {checkpoint_step}")
         ax.grid(True, alpha=0.25)
 
     axes[-1].legend(ncol=2, fontsize=8, loc="best")
     fig.suptitle(
-        "Calculating epsilon_opt on linear epsilon axes\n"
-        "red-outlined colored x markers show fitted-theory epsilon_opt(B); lower is better",
+        "Finding maximum one-step loss reduction on linear epsilon axes\n"
+        "red-outlined colored x markers show fitted-theory epsilon_opt(B); optimum is minimum ΔL",
         y=1.05,
     )
     fig.tight_layout()
@@ -751,7 +772,7 @@ def make_normalized_plots(
             dtype=float,
         )
         y_exp = np.array(
-            [float(row["epsilon_opt_grid"]) / epsilon_max for row in checkpoint_rows],
+            [float(row["epsilon_opt_quadratic"]) / epsilon_max for row in checkpoint_rows],
             dtype=float,
         )
         x_min = min(x_exp.min(), 1e-2)
@@ -759,7 +780,7 @@ def make_normalized_plots(
         x_theory = np.logspace(np.log10(x_min), np.log10(x_max), 300)
         y_theory = x_theory / (1.0 + x_theory)
 
-        ax.scatter(x_exp, y_exp, s=55, label="experimental grid optimum")
+        ax.scatter(x_exp, y_exp, s=55, label="quadratic-refined experimental optimum")
         ax.plot(x_theory, y_theory, linewidth=2.2, label="theory: x / (1 + x)")
         ax.set_xscale("log")
         ax.set_xlabel("B / B_noise")
@@ -777,7 +798,7 @@ def make_normalized_plots(
     plt.close(fig)
 
 
-def make_delta_opt_vs_epsilon_opt_plot(
+def make_loss_change_opt_vs_epsilon_opt_plot(
     config: ExperimentConfig,
     opt_rows: list[dict[str, float]],
     output_dir: Path,
@@ -799,14 +820,14 @@ def make_delta_opt_vs_epsilon_opt_plot(
                 row for row in opt_rows
                 if int(row["checkpoint_step"]) == checkpoint_step
             ],
-            key=lambda row: float(row["epsilon_opt_grid"]),
+            key=lambda row: float(row["epsilon_opt_quadratic"]),
         )
         epsilon_opt = np.array(
-            [float(row["epsilon_opt_grid"]) for row in checkpoint_rows],
+            [float(row["epsilon_opt_quadratic"]) for row in checkpoint_rows],
             dtype=float,
         )
         loss_change_opt = np.array(
-            [float(row["loss_change_opt_grid"]) for row in checkpoint_rows],
+            [float(row["loss_change_opt_quadratic"]) for row in checkpoint_rows],
             dtype=float,
         )
 
