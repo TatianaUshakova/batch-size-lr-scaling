@@ -5,26 +5,19 @@ This repository implements a minimal empirical test of the local batch-size mode
 The paper models a minibatch gradient as a noisy estimate of the full training gradient and predicts how the learning rate that gives the best expected one-step training-loss change should depend on batch size. The central prediction is
 
 $$
-\epsilon_{\text{opt}}(B)
-=
-\frac{\epsilon_{\max}}
-{1 + B_{\text{noise}} / B}.
+\epsilon_{\text{opt}}(B) = \frac{\epsilon_{\max}}{1 + B_{\text{noise}} / B}.
 $$
 
 where
 
 $$
-\epsilon_{\max}
-=
-\frac{\lVert G \rVert^2}{G^T H G}
+\epsilon_{\max} = \frac{\lVert G \rVert^2}{G^T H G}
 $$
 
 is the optimal local step size for the exact full-data gradient, and
 
 $$
-B_{\text{noise}}
-=
-\frac{\operatorname{tr}(H\Sigma)}{G^T H G}
+B_{\text{noise}} = \frac{\mathrm{tr}(H\Sigma)}{G^T H G}
 $$
 
 is the gradient-noise scale.
@@ -33,23 +26,19 @@ Here:
 
 - $G = \nabla_\theta L(\theta)$ is the full-data gradient.
 - $H = \nabla_\theta^2 L(\theta)$ is the Hessian of the full-data loss.
-- $\Sigma = \operatorname{Cov}(g_i)$ is the covariance of per-example gradients.
+- $\Sigma = \mathrm{Cov}(g_i)$ is the covariance of per-example gradients.
 - $B$ is minibatch size.
 
 The interpretation of $B_{\text{noise}}$ is that it marks the transition between two regimes:
 
 $$
-B \ll B_{\text{noise}}
-\quad\Rightarrow\quad
-\epsilon_{\text{opt}}(B) \propto B,
+B \ll B_{\text{noise}} \quad\Rightarrow\quad \epsilon_{\text{opt}}(B) \propto B,
 $$
 
 so increasing batch size substantially improves the best achievable one-step progress, while
 
 $$
-B \gg B_{\text{noise}}
-\quad\Rightarrow\quad
-\epsilon_{\text{opt}}(B) \approx \epsilon_{\max},
+B \gg B_{\text{noise}} \quad\Rightarrow\quad \epsilon_{\text{opt}}(B) \approx \epsilon_{\max},
 $$
 
 so further batch increases give diminishing returns.
@@ -86,13 +75,7 @@ The main qualitative result is that normalized $\epsilon_{\text{opt}} / \epsilon
 At fixed parameters $\theta$, for batch size $B$, define a minibatch gradient
 
 $$
-g_{B,k}
-=
-\nabla_\theta L_{b_k}(\theta)
-=
-\frac{1}{B}
-\sum_{(x_i,y_i)\in b_k}
-\nabla_\theta \ell(f_\theta(x_i), y_i),
+g_{B,k} = \nabla_\theta L_{b_k}(\theta) = \frac{1}{B}\sum_{(x_i,y_i)\in b_k}\nabla_\theta \ell(f_\theta(x_i), y_i),
 $$
 
 where $b_k$ is the $k$-th randomly sampled minibatch and $\ell$ is per-example cross-entropy loss.
@@ -100,19 +83,13 @@ where $b_k$ is the $k$-th randomly sampled minibatch and $\ell$ is per-example c
 For a candidate learning rate $\epsilon$, form the hypothetical update
 
 $$
-\theta'_{B,k,\epsilon}
-=
-\theta - \epsilon g_{B,k}.
+\theta'_{B,k,\epsilon} = \theta - \epsilon g_{B,k}.
 $$
 
 The one-step loss change is measured on a fixed large evaluation subset:
 
 $$
-\Delta L_{B,k}(\epsilon)
-=
-L_{\text{eval}}(\theta'_{B,k,\epsilon})
--
-L_{\text{eval}}(\theta).
+\Delta L_{B,k}(\epsilon) = L_{\text{eval}}(\theta'_{B,k,\epsilon}) - L_{\text{eval}}(\theta).
 $$
 
 A negative value means that the update reduced evaluation loss.
@@ -120,29 +97,19 @@ A negative value means that the update reduced evaluation loss.
 For each batch size, average over many independently sampled minibatches:
 
 $$
-\overline{\Delta L}_{B}(\epsilon)
-=
-\frac{1}{K}
-\sum_{k=1}^{K}
-\Delta L_{B,k}(\epsilon).
+\overline{\Delta L}_{B}(\epsilon) = \frac{1}{K}\sum_{k=1}^{K}\Delta L_{B,k}(\epsilon).
 $$
 
 The empirical optimal learning rate is then
 
 $$
-\epsilon_{\text{opt}}^{\text{meas}}(B)
-=
-\arg\min_{\epsilon}
-\overline{\Delta L}_{B}(\epsilon).
+\epsilon_{\text{opt}}^{\text{meas}}(B) = \arg\min_{\epsilon}\overline{\Delta L}_{B}(\epsilon).
 $$
 
 The experiment tests whether
 
 $$
-\epsilon_{\text{opt}}^{\text{meas}}(B)
-\approx
-\frac{\epsilon_{\max}}
-{1 + B_{\text{noise}} / B}.
+\epsilon_{\text{opt}}^{\text{meas}}(B) \approx \frac{\epsilon_{\max}}{1 + B_{\text{noise}} / B}.
 $$
 
 ## MNIST setup
@@ -178,8 +145,7 @@ $$
 3. Choose a learning-rate grid that is broad enough to show instability at large steps and dense near the observed optimum:
 
 $$
-\epsilon \in
-\{10^{-4}, 3 \cdot 10^{-4}, 10^{-3}, \ldots, 0.04, 0.05, \ldots, 0.4, 0.5, 0.7, 1.0\}.
+\epsilon \in \{10^{-4}, 3 \cdot 10^{-4}, 10^{-3}, \ldots, 0.04, 0.05, \ldots, 0.4, 0.5, 0.7, 1.0\}.
 $$
 
 4. For each batch size $B$:
@@ -189,19 +155,13 @@ $$
    3. For every candidate $\epsilon$, form:
 
       $$
-      \theta'_{B,k,\epsilon}
-      =
-      \theta_t - \epsilon g_{B,k}.
+      \theta'_{B,k,\epsilon} = \theta_t - \epsilon g_{B,k}.
       $$
 
 4. Evaluate the loss change:
 
       $$
-      \Delta L_{B,k}(\epsilon)
-      =
-      L_{\text{eval}}(\theta'_{B,k,\epsilon})
-      -
-      L_{\text{eval}}(\theta_t).
+      \Delta L_{B,k}(\epsilon) = L_{\text{eval}}(\theta'_{B,k,\epsilon}) - L_{\text{eval}}(\theta_t).
       $$
 
    5. Average $\Delta L_{B,k}(\epsilon)$ over $k$.
@@ -209,19 +169,13 @@ $$
 5. For each $B$, find:
 
 $$
-\epsilon_{\text{opt}}^{\text{meas}}(B)
-=
-\arg\min_{\epsilon}
-\overline{\Delta L}_{B}(\epsilon).
+\epsilon_{\text{opt}}^{\text{meas}}(B) = \arg\min_{\epsilon}\overline{\Delta L}_{B}(\epsilon).
 $$
 
 6. Fit the measured values to:
 
 $$
-\epsilon_{\text{opt}}(B)
-=
-\frac{\epsilon_{\max}}
-{1 + B_{\text{noise}} / B}.
+\epsilon_{\text{opt}}(B) = \frac{\epsilon_{\max}}{1 + B_{\text{noise}} / B}.
 $$
 
 ## Outputs
@@ -247,9 +201,7 @@ against $B$.
 3. A fitted estimate of
 
 $$
-\epsilon_{\max}
-\quad\text{and}\quad
-B_{\text{noise}}.
+\epsilon_{\max} \quad\text{and}\quad B_{\text{noise}}.
 $$
 
 4. A comparison between the measured learning-rate curve and the theoretical prediction.
