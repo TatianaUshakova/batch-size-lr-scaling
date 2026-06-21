@@ -2,6 +2,8 @@
 
 A minimal MNIST experiment testing a central claim of McCandlish, Kaplan, Amodei et al., *An Empirical Model of Large-Batch Training* (2018).
 
+For the clearest walkthrough of the motivation, formulas, plots, fitted parameters, and limitations, start with `mnist_optimal_batch_lr_report.ipynb`. This README summarizes the project structure and main result.
+
 The paper asks: **how large should a training batch be before adding more examples mostly increases compute, rather than making training meaningfully faster?**
 
 A minibatch gradient is noisy. Increasing batch size reduces that noise, allowing more progress per optimization step. But beyond a characteristic **noise scale**, the gradient is already sufficiently accurate: larger batches mostly add compute rather than useful progress.
@@ -24,11 +26,9 @@ $$
 \Delta L_{\text{opt}}(B) = \frac{\Delta L_{\infty}}{1 + B_{\text{noise}} / B} = \Delta L_{\infty}\frac{B}{B + B_{\text{noise}}}.
 $$
 
-Here $\Delta L_{\infty} = -\frac{1}{2}\lVert G\rVert^2\epsilon_{\max}$ is the limiting optimal loss change for an exact full-batch gradient. Because $\Delta L_{\infty}<0$, the corresponding positive loss reduction is
+Here $\Delta L_{\infty} = -\frac{1}{2}\lVert G\rVert^2\epsilon_{\max}$ is the limiting optimal loss change for an exact full-batch gradient. Since $\Delta L_{\infty}<0$, values closer to $\Delta L_{\infty}$ mean larger loss decreases.
 
-$$
-R_{\text{opt}}(B) = -\Delta L_{\text{opt}}(B) = R_{\infty}\frac{B}{B + B_{\text{noise}}}.
-$$
+<img src="assets/batch_size_scaling_from_paper.png" alt="Paper illustration of efficient and inefficient batch-size scaling" width="520">
 
 This is the batch-size result: for $B \ll B_{\text{noise}}$, useful one-step progress grows approximately linearly with batch size; around $B \sim B_{\text{noise}}$, the gains begin to slow; and for $B \gg B_{\text{noise}}$, progress is close to its maximum.
 
