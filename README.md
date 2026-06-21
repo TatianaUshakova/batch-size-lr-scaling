@@ -151,15 +151,15 @@ $$
    2. Compute $g_{B,k}$ for each minibatch at the same frozen $\theta_t$.
    3. For every candidate $\epsilon$, form:
 
-      $$
-      \theta'_{B,k,\epsilon} = \theta_t - \epsilon g_{B,k}.
-      $$
+$$
+\theta'_{B,k,\epsilon} = \theta_t - \epsilon g_{B,k}.
+$$
 
 4. Evaluate the loss change:
 
-      $$
-      \Delta L_{B,k}(\epsilon) = L_{\text{eval}}(\theta'_{B,k,\epsilon}) - L_{\text{eval}}(\theta_t).
-      $$
+$$
+\Delta L_{B,k}(\epsilon) = L_{\text{eval}}(\theta'_{B,k,\epsilon}) - L_{\text{eval}}(\theta_t).
+$$
 
    5. Average $\Delta L_{B,k}(\epsilon)$ over $k$.
 
