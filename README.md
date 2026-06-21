@@ -1,49 +1,46 @@
 # Testing the Gradient-Noise Model of Large-Batch Training
 
-This repository implements a minimal empirical test of the local batch-size model proposed in McCandlish, Kaplan, Amodei et al., *An Empirical Model of Large-Batch Training* (2018).
+A minimal MNIST experiment testing a central claim of McCandlish, Kaplan, Amodei et al., *An Empirical Model of Large-Batch Training* (2018).
 
-The paper models a minibatch gradient as a noisy estimate of the full training gradient and predicts how the learning rate that gives the best expected one-step training-loss change should depend on batch size. The central prediction is
+The paper asks: **how large should a training batch be before adding more examples mostly increases compute, rather than making training meaningfully faster?**
+
+A minibatch gradient is noisy. Increasing batch size reduces that noise, allowing more progress per optimization step. But beyond a characteristic **noise scale**, the gradient is already sufficiently accurate: larger batches mostly add compute rather than useful progress.
+
+In the local quadratic model, the expected one-step loss change for learning rate $\epsilon$ and batch size $B$ is
+
+$$
+\Delta L(\epsilon, B) \approx -\epsilon \lVert G \rVert^2 + \frac{\epsilon^2}{2}\left(G^T H G + \frac{\mathrm{tr}(H\Sigma)}{B}\right).
+$$
+
+Here $G$ is the full-data gradient, $H$ is the Hessian of the full-data loss, $\Sigma$ is the covariance of per-example gradients, and the gradient-noise scale is
+
+$$
+B_{\text{noise}} = \frac{\mathrm{tr}(H\Sigma)}{G^T H G}.
+$$
+
+Using the standard convention $\Delta L = L_{\text{after}} - L_{\text{before}}$, the best achievable one-step loss change at batch size $B$ is
+
+$$
+\Delta L_{\text{opt}}(B) = \frac{\Delta L_{\infty}}{1 + B_{\text{noise}} / B} = \Delta L_{\infty}\frac{B}{B + B_{\text{noise}}}.
+$$
+
+Here $\Delta L_{\infty} = -\frac{1}{2}\lVert G\rVert^2\epsilon_{\max}$ is the limiting optimal loss change for an exact full-batch gradient. Because $\Delta L_{\infty}<0$, the corresponding positive loss reduction is
+
+$$
+R_{\text{opt}}(B) = -\Delta L_{\text{opt}}(B) = R_{\infty}\frac{B}{B + B_{\text{noise}}}.
+$$
+
+This is the batch-size result: for $B \ll B_{\text{noise}}$, useful one-step progress grows approximately linearly with batch size; around $B \sim B_{\text{noise}}$, the gains begin to slow; and for $B \gg B_{\text{noise}}$, progress is close to its maximum.
+
+The corresponding optimal local learning rate is
 
 $$
 \epsilon_{\text{opt}}(B) = \frac{\epsilon_{\max}}{1 + B_{\text{noise}} / B}.
 $$
 
-where
+This repository tests that prediction on a small MNIST MLP. At fixed checkpoints during training, it measures the empirically optimal one-step learning rate across batch sizes, fits the theoretical curve, and estimates the corresponding gradient-noise scale.
 
-$$
-\epsilon_{\max} = \frac{\lVert G \rVert^2}{G^T H G}
-$$
-
-is the optimal local step size for the exact full-data gradient, and
-
-$$
-B_{\text{noise}} = \frac{\mathrm{tr}(H\Sigma)}{G^T H G}
-$$
-
-is the gradient-noise scale.
-
-Here:
-
-- $G = \nabla_\theta L(\theta)$ is the full-data gradient.
-- $H = \nabla_\theta^2 L(\theta)$ is the Hessian of the full-data loss.
-- $\Sigma = \mathrm{Cov}(g_i)$ is the covariance of per-example gradients.
-- $B$ is minibatch size.
-
-The interpretation of $B_{\text{noise}}$ is that it marks the transition between two regimes:
-
-$$
-B \ll B_{\text{noise}} \quad\Rightarrow\quad \epsilon_{\text{opt}}(B) \propto B,
-$$
-
-so increasing batch size substantially improves the best achievable one-step progress, while
-
-$$
-B \gg B_{\text{noise}} \quad\Rightarrow\quad \epsilon_{\text{opt}}(B) \approx \epsilon_{\max},
-$$
-
-so further batch increases give diminishing returns.
-
-This repository first tests this local prediction on MNIST. At fixed model checkpoints, it measures the empirical learning rate that gives the maximum expected one-step loss reduction after one SGD-style update, equivalently the minimum standard loss change $\Delta L = L_{\text{after}} - L_{\text{before}}$, for different batch sizes, and compares the measured curve with the theoretical formula above.
+The experiment is local: it tests the paper's one-step optimization model, not global optimality of a complete training schedule.
 
 ## Current project stage
 
